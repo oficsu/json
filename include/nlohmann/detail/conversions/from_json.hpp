@@ -383,30 +383,34 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
 
 struct from_json_fn
 {
-    template<typename T, typename... Args>
-    using static_from_json_function = decltype(T::from_json(std::declval<Args>()...));
+    template<typename ValueType, typename... Args>
+    using static_from_json_function = decltype(ValueType::from_json(std::declval<Args>()...));
 
-    template<typename T, typename... Args>
-    using member_from_json_function = decltype(std::declval<T>().from_json(std::declval<Args>()...));
+    template<typename ValueType, typename... Args>
+    using member_from_json_function = decltype(std::declval<ValueType>().from_json(std::declval<Args>()...));
 
     template<typename... Args>
     using adl_accesible_from_json_function = decltype(from_json(std::declval<Args>()...));
 
-    // trait checking if static ValueType::from_json(json const&, args...) exists
-    template<typename ValueType, typename... Args>
-    struct has_static_from_json : is_detected<static_from_json_function, Args...> {};
+    // trait checking if static ValueType::from_json(JSON const&, args...) exists
+    template<typename ValueType, typename JSON, typename... Args>
+    struct has_non_default_static_from_json : is_detected_exact<ValueType, static_from_json_function, ValueType, JSON, Args...> {};
 
-    // trait checking if ValueType::from_json(json const&, args...) exists
-    template<typename ValueType, typename... Args>
-    struct has_member_from_json : is_detected_exact<void, member_from_json_function, ValueType, Args...> {};
+    // trait checking if static ValueType::from_json(JSON const&, ValueType&, args...) exists
+    template<typename ValueType, typename JSON, typename... Args>
+    struct has_static_from_json : is_detected_exact<void, static_from_json_function, typename std::decay<ValueType>::type, JSON, ValueType, Args...> {};
+
+    // trait checking if ValueType::from_json(json const&, JSON const&, args...) exists
+    template<typename ValueType, typename JSON, typename... Args>
+    struct has_member_from_json : is_detected_exact<void, member_from_json_function, ValueType, JSON, Args...> {};
 
     // trait checking if `from_json(json const&, ValueType&, args...) exists
     template<typename... Args>
     struct has_adl_accesible_from_json : is_detected_exact<void, adl_accesible_from_json_function, Args...> {};
 
     // trait checking if `from_json(json const&, args..., adl_tag<ValueType>{}) exists
-    template<typename ValueType, typename... Args>
-    struct has_tagged_adl_accesible_from_json : is_detected<adl_accesible_from_json_function, Args..., adl_tag<ValueType>> {};
+    template<typename ValueType, typename JSON, typename... Args>
+    struct has_tagged_adl_accesible_from_json : is_detected<adl_accesible_from_json_function, JSON, Args..., adl_tag<ValueType>> {};
 
     /*!
     @brief call static member function of @a ValueType
@@ -427,8 +431,8 @@ struct from_json_fn
     */
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, adl_tag<ValueType>, Args&& ... args) const
-    noexcept(noexcept(from_json(j, std::forward<Args>(args)...)))
-    -> decltype(from_json(j, std::forward<Args>(args)...), std::declval<ValueType>())
+    noexcept(noexcept(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...)))
+    -> decltype(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...))
     {
         return ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...);
     }
@@ -449,9 +453,9 @@ struct from_json_fn
     */
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, adl_tag<ValueType> tag, Args&& ... args) const
-    noexcept(noexcept(from_json(j, std::forward<Args>(args)..., tag)))
-    -> typename detail::enable_if_t < !has_static_from_json<typename std::decay<ValueType>::type, decltype(args)...>::value&&
-    has_tagged_adl_accesible_from_json<decltype(j), decltype(args)...>::value, ValueType >::type
+    noexcept(noexcept(from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., tag)))
+    -> typename detail::enable_if_t < !has_non_default_static_from_json<ValueType, decltype(j), decltype(args)...>::value &&
+                                       has_tagged_adl_accesible_from_json<ValueType, decltype(j), decltype(args)...>::value, ValueType>
     {
         return from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., tag);
     }
@@ -474,13 +478,23 @@ struct from_json_fn
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(const BasicJsonType& j, ValueType& val, Args&& ... args) const
     noexcept(noexcept(val.from_json(j, std::forward<Args>(args)...)))
-    -> decltype(val.from_json(j, std::forward<Args>(args)...), void())
+    -> enable_if_t < has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value >
     {
         val.from_json(j, std::forward<Args>(args)...);
     }
 
+    /*!
+    @todo add docs
+    */
     template<typename BasicJsonType, typename ValueType, typename... Args>
-    using test = decltype(from_json(std::declval<BasicJsonType>(), std::declval<ValueType>(), std::declval<Args>()...));
+    auto operator()(BasicJsonType&& j, ValueType&& val, Args&& ... args) const
+    noexcept(noexcept(std::decay<ValueType>::type::from_json(std::forward<BasicJsonType>(j), std::forward<ValueType>(val), std::forward<Args>(args)...)))
+    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
+                      has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value >
+    {
+        std::decay<ValueType>::type::from_json(std::forward<BasicJsonType>(j), std::forward<ValueType>(val), std::forward<Args>(args)...);
+    }
+
     /*!
     @brief call free `from_json()` function in namespace of @a ValueType via ADL
 
@@ -498,8 +512,9 @@ struct from_json_fn
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(const BasicJsonType& j, ValueType& val, Args&& ... args) const
     noexcept(noexcept(from_json(j, val, std::forward<Args>(args)...)))
-    -> enable_if_t < has_adl_accesible_from_json<decltype(j), decltype(val), decltype(args)...>::value&&
-    !has_member_from_json<decltype(j), decltype(val), decltype(args)...>::value >
+    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
+                     !has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
+                      has_adl_accesible_from_json<decltype(j), decltype(val), decltype(args)...>::value >
     {
         from_json(j, val, std::forward<Args>(args)...);
     }

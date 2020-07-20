@@ -25,7 +25,7 @@ struct adl_serializer
         noexcept(::nlohmann::from_json(std::forward<Args>(args)...)))
     -> decltype(::nlohmann::from_json(std::forward<Args>(args)...))
     {
-        ::nlohmann::from_json(std::forward<Args>(args)...);
+        return ::nlohmann::from_json(std::forward<Args>(args)...);
     }
 
     /*!
