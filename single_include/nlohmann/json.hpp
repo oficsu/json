@@ -3095,7 +3095,7 @@ template <typename BasicJsonType, typename T, typename = void>
 struct has_non_default_from_json : std::false_type {};
 
 template<typename BasicJsonType, typename T>
-struct has_non_default_from_json<BasicJsonType, T, enable_if_t<not is_basic_json<T>::value>>
+struct has_non_default_from_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
 {
     using serializer = typename BasicJsonType::template json_serializer<T, void>;
 
