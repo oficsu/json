@@ -2947,6 +2947,27 @@ using ordered_json = basic_json<nlohmann::ordered_map>;
 
 #endif  // INCLUDE_NLOHMANN_JSON_FWD_HPP_
 
+// #include <nlohmann/adl_tag.hpp>
+
+
+namespace nlohmann
+{
+/*!
+@brief tag for ADL
+
+Nested template parameter is used for TAD
+([template argument deduction](https://en.cppreference.com/w/cpp/language/template_argument_deduction))
+when user can't provide function which accepts needed typename as parameter
+Such function argument can be used for ADL
+([argument-dependent lookup](https://en.cppreference.com/w/cpp/language/adl))
+by nested template parameter for serialization.
+
+@todo I don't know where is the right place for tag, thus i choosed separate file
+*/
+template<typename>
+struct adl_tag {};
+} // namespace nlohmann
+
 
 namespace nlohmann
 {
@@ -3053,13 +3074,28 @@ struct has_from_json < BasicJsonType, T,
         const BasicJsonType&, T&>::value;
 };
 
-// This trait checks if JSONSerializer<T>::from_json(json const&) exists
+// This trait checks if JSONSerializer<T>::from_json(json const&, adl_tag<T>) exists
 // this overload is used for non-default-constructible user-defined-types
 template<typename BasicJsonType, typename T, typename = void>
+struct has_tagged_from_json : std::false_type {};
+
+template<typename BasicJsonType, typename T>
+struct has_tagged_from_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
+{
+    using serializer = typename BasicJsonType::template json_serializer<T, void>;
+
+    static constexpr bool value =
+        is_detected_exact<T, from_json_function, serializer,
+        const BasicJsonType&, adl_tag<T>>::value;
+};
+
+// This trait checks if JSONSerializer<T>::from_json(json const&) exists
+// this overload is used for non-default-constructible user-defined-types
+template <typename BasicJsonType, typename T, typename = void>
 struct has_non_default_from_json : std::false_type {};
 
 template<typename BasicJsonType, typename T>
-struct has_non_default_from_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
+struct has_non_default_from_json<BasicJsonType, T, enable_if_t<not is_basic_json<T>::value>>
 {
     using serializer = typename BasicJsonType::template json_serializer<T, void>;
 
@@ -3782,12 +3818,125 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
 
 struct from_json_fn
 {
-    template<typename BasicJsonType, typename T>
-    auto operator()(const BasicJsonType& j, T& val) const
-    noexcept(noexcept(from_json(j, val)))
-    -> decltype(from_json(j, val), void())
+    template<typename T, typename... Args>
+    using static_from_json_function = decltype(T::from_json(std::declval<Args>()...));
+
+    template<typename T, typename... Args>
+    using member_from_json_function = decltype(std::declval<T>().from_json(std::declval<Args>()...));
+
+    template<typename... Args>
+    using adl_accesible_from_json_function = decltype(from_json(std::declval<Args>()...));
+
+    // trait checking if static ValueType::from_json(json const&, args...) exists
+    template<typename ValueType, typename... Args>
+    struct has_static_from_json : is_detected<static_from_json_function, Args...> {};
+
+    // trait checking if ValueType::from_json(json const&, args...) exists
+    template<typename ValueType, typename... Args>
+    struct has_member_from_json : is_detected_exact<void, member_from_json_function, ValueType, Args...> {};
+
+    // trait checking if `from_json(json const&, ValueType&, args...) exists
+    template<typename... Args>
+    struct has_adl_accesible_from_json : is_detected_exact<void, adl_accesible_from_json_function, Args...> {};
+
+    // trait checking if `from_json(json const&, args..., adl_tag<ValueType>{}) exists
+    template<typename ValueType, typename... Args>
+    struct has_tagged_adl_accesible_from_json : is_detected<adl_accesible_from_json_function, Args..., adl_tag<ValueType>> {};
+
+    /*!
+    @brief call static member function of @a ValueType
+
+    @note If @a ValueType has `from_json()` as static member and free function
+          with @ref adl_tag<ValueType> as argument in the same namespace, this one is chosen.
+
+    @tparam ValueType the returned value type
+    @tparam Args       optional user-defined arguments
+
+    @param[in] j     JSON value to read from
+    @param[in] tag   used for template argument deduction
+    @param[in] args  additional user-defined arguments
+
+    @throw what @ref ValueType `from_json()` method throws
+
+    @return copy of the JSON value, converted to @a ValueType
+    */
+    template<typename BasicJsonType, typename ValueType, typename... Args>
+    auto operator()(BasicJsonType&& j, adl_tag<ValueType>, Args&& ... args) const
+    noexcept(noexcept(from_json(j, std::forward<Args>(args)...)))
+    -> decltype(from_json(j, std::forward<Args>(args)...), std::declval<ValueType>())
     {
-        return from_json(j, val);
+        return ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...);
+    }
+
+    /*!
+    @brief call tagged free function in namespace of @a ValueType via ADL
+
+    @tparam ValueType the returned value type
+    @tparam Args      optional user-defined arguments
+
+    @param[in] j     JSON value to read from
+    @param[in] tag   used for template argument deduction
+    @param[in] args  additional user-defined arguments
+
+    @throw what @ref ValueType `from_json()` method throws
+
+    @return copy of the JSON value, converted to @a ValueType
+    */
+    template<typename BasicJsonType, typename ValueType, typename... Args>
+    auto operator()(BasicJsonType&& j, adl_tag<ValueType> tag, Args&& ... args) const
+    noexcept(noexcept(from_json(j, std::forward<Args>(args)..., tag)))
+    -> typename detail::enable_if_t < !has_static_from_json<typename std::decay<ValueType>::type, decltype(args)...>::value&&
+    has_tagged_adl_accesible_from_json<decltype(j), decltype(args)...>::value, ValueType >::type
+    {
+        return from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., tag);
+    }
+
+    /*!
+    @brief call non-static `from_json()` function of @a val
+
+    @note If @a val has `from_json()` as member function and as free function
+          in the same namespace, this one is chosen.
+
+    @tparam ValueType the returned value type
+    @tparam Args      optional user-defined arguments
+
+    @param[in] j     JSON value to read from
+    @param[in] tag   used for template argument deduction
+    @param[in] args  additional user-defined arguments
+
+    @throw what @ref ValueType `from_json()` method throws
+    */
+    template<typename BasicJsonType, typename ValueType, typename... Args>
+    auto operator()(const BasicJsonType& j, ValueType& val, Args&& ... args) const
+    noexcept(noexcept(val.from_json(j, std::forward<Args>(args)...)))
+    -> decltype(val.from_json(j, std::forward<Args>(args)...), void())
+    {
+        val.from_json(j, std::forward<Args>(args)...);
+    }
+
+    template<typename BasicJsonType, typename ValueType, typename... Args>
+    using test = decltype(from_json(std::declval<BasicJsonType>(), std::declval<ValueType>(), std::declval<Args>()...));
+    /*!
+    @brief call free `from_json()` function in namespace of @a ValueType via ADL
+
+    @tparam ValueType the returned value type
+    @tparam Args      optional user-defined arguments
+
+    @param[in] j     JSON value to read from
+    @param[in] tag   used for template argument deduction
+    @param[in] args  additional user-defined arguments
+
+    @throw what @ref ValueType `from_json()` method throws
+
+    @return copy of the JSON value, converted to @a ValueType
+    */
+    template<typename BasicJsonType, typename ValueType, typename... Args>
+    auto operator()(const BasicJsonType& j, ValueType& val, Args&& ... args) const
+    noexcept(noexcept(from_json(j, val, std::forward<Args>(args)...)))
+    -> enable_if_t < has_adl_accesible_from_json<decltype(j), decltype(val), decltype(args)...>::value&&
+    !has_member_from_json<decltype(j), decltype(val), decltype(args)...>::value >
+    {
+        from_json(j, val, std::forward<Args>(args)...);
     }
 };
 }  // namespace detail
@@ -4377,12 +4526,12 @@ struct adl_serializer
     @param[in] j        JSON value to read from
     @param[in,out] val  value to write to
     */
-    template<typename BasicJsonType, typename ValueType>
-    static auto from_json(BasicJsonType&& j, ValueType& val) noexcept(
-        noexcept(::nlohmann::from_json(std::forward<BasicJsonType>(j), val)))
-    -> decltype(::nlohmann::from_json(std::forward<BasicJsonType>(j), val), void())
+    template<typename... Args>
+    static auto from_json(Args&& ... args) noexcept(
+        noexcept(::nlohmann::from_json(std::forward<Args>(args)...)))
+    -> decltype(::nlohmann::from_json(std::forward<Args>(args)...))
     {
-        ::nlohmann::from_json(std::forward<BasicJsonType>(j), val);
+        ::nlohmann::from_json(std::forward<Args>(args)...);
     }
 
     /*!
@@ -19267,6 +19416,60 @@ class basic_json
     @throw what @ref json_serializer<ValueType> `from_json()` method throws
 
     @since version 2.1.0
+    */
+    template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
+               detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
+                                     detail::has_tagged_from_json<basic_json_t, ValueType>::value &&
+                                     !detail::has_non_default_from_json<basic_json_t, ValueType>::value,
+                                     int > = 0 >
+    ValueType get() const noexcept(noexcept(
+                                       JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), adl_tag<ValueType> {})))
+    {
+        static_assert(!std::is_reference<ValueTypeCV>::value,
+                      "get() cannot be used with reference types, you might want to use get_ref()");
+        return JSONSerializer<ValueType>::from_json(*this, adl_tag<ValueType> {});
+    }
+
+    /*!
+    //    @brief get a value (explicit); special case
+
+    //    Explicit type conversion between the JSON value and a compatible value
+    //    which is **not** [CopyConstructible](https://en.cppreference.com/w/cpp/named_req/CopyConstructible)
+    //    and **not** [DefaultConstructible](https://en.cppreference.com/w/cpp/named_req/DefaultConstructible).
+    //            template<typename Source, typename... Args>
+        static auto from_json_impl(tag<Source> tag, Args&&... json)
+                noexcept(noexcept(from_json(std::forward<Args>(json)..., tag)))
+                -> typename std::enable_if<    has_adl_from_json<source_type, Args...>::value
+                                           && !has_static_from_json<source_type, Args...>::value
+                                           && !has_member_from_json<source_type, Args...>::value
+                                           , decltype(from_json(std::forward<Args>(json)..., tag))>::type
+        {
+            static_assert(std::is_same<Source, source_type>::value, "Adl target type and nested tag type must be same");
+            return from_json(std::forward<Args>(json)..., tag);
+        }The value is converted by calling the @ref json_serializer<ValueType>
+    //    `from_json()` method.
+
+    //    The function is equivalent to executing
+    //    @code {.cpp}
+    //    return JSONSerializer<ValueTypeCV>::from_json(*this);
+    //    @endcode
+
+    //    This overloads is chosen if:
+    //    - @a ValueType is not @ref basic_json and
+    //    - @ref json_serializer<ValueType> has a `from_json()` method of the form
+    //      `ValueType from_json(const basic_json&)`
+
+    //    @note If @ref json_serializer<ValueType> has both overloads of
+    //    `from_json()`, this one is chosen.
+
+    //    @tparam ValueTypeCV the provided value type
+    //    @tparam ValueType the returned value type
+
+    //    @return copy of the JSON value, converted to @a ValueType
+
+    //    @throw what @ref json_serializer<ValueType> `from_json()` method throws
+
+    //    @since version 2.1.0
     */
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
