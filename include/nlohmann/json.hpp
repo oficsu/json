@@ -2972,6 +2972,60 @@ class basic_json
     */
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
+                                     detail::has_tagged_from_json<basic_json_t, ValueType>::value &&
+                                     !detail::has_non_default_from_json<basic_json_t, ValueType>::value,
+                                     int > = 0 >
+    ValueType get() const noexcept(noexcept(
+                                       JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), adl_tag<ValueType> {})))
+    {
+        static_assert(!std::is_reference<ValueTypeCV>::value,
+                      "get() cannot be used with reference types, you might want to use get_ref()");
+        return JSONSerializer<ValueType>::from_json(*this, adl_tag<ValueType> {});
+    }
+
+    /*!
+    //    @brief get a value (explicit); special case
+
+    //    Explicit type conversion between the JSON value and a compatible value
+    //    which is **not** [CopyConstructible](https://en.cppreference.com/w/cpp/named_req/CopyConstructible)
+    //    and **not** [DefaultConstructible](https://en.cppreference.com/w/cpp/named_req/DefaultConstructible).
+    //            template<typename Source, typename... Args>
+        static auto from_json_impl(tag<Source> tag, Args&&... json)
+                noexcept(noexcept(from_json(std::forward<Args>(json)..., tag)))
+                -> typename std::enable_if<    has_adl_from_json<source_type, Args...>::value
+                                           && !has_static_from_json<source_type, Args...>::value
+                                           && !has_member_from_json<source_type, Args...>::value
+                                           , decltype(from_json(std::forward<Args>(json)..., tag))>::type
+        {
+            static_assert(std::is_same<Source, source_type>::value, "Adl target type and nested tag type must be same");
+            return from_json(std::forward<Args>(json)..., tag);
+        }The value is converted by calling the @ref json_serializer<ValueType>
+    //    `from_json()` method.
+
+    //    The function is equivalent to executing
+    //    @code {.cpp}
+    //    return JSONSerializer<ValueTypeCV>::from_json(*this);
+    //    @endcode
+
+    //    This overloads is chosen if:
+    //    - @a ValueType is not @ref basic_json and
+    //    - @ref json_serializer<ValueType> has a `from_json()` method of the form
+    //      `ValueType from_json(const basic_json&)`
+
+    //    @note If @ref json_serializer<ValueType> has both overloads of
+    //    `from_json()`, this one is chosen.
+
+    //    @tparam ValueTypeCV the provided value type
+    //    @tparam ValueType the returned value type
+
+    //    @return copy of the JSON value, converted to @a ValueType
+
+    //    @throw what @ref json_serializer<ValueType> `from_json()` method throws
+
+    //    @since version 2.1.0
+    */
+    template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
+               detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
                                      detail::has_non_default_from_json<basic_json_t, ValueType>::value,
                                      int > = 0 >
     ValueType get() const noexcept(noexcept(
