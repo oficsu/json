@@ -2972,15 +2972,15 @@ class basic_json
     */
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
-                                     detail::has_tagged_from_json<basic_json_t, ValueType>::value &&
+                                      detail::has_tagged_from_json<basic_json_t, ValueType>::value &&
                                      !detail::has_non_default_from_json<basic_json_t, ValueType>::value,
                                      int > = 0 >
     ValueType get() const noexcept(noexcept(
-                                       JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), adl_tag<ValueType> {})))
+                                       JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), adl_tag<ValueType>{})))
     {
         static_assert(!std::is_reference<ValueTypeCV>::value,
                       "get() cannot be used with reference types, you might want to use get_ref()");
-        return JSONSerializer<ValueType>::from_json(*this, adl_tag<ValueType> {});
+        return JSONSerializer<ValueType>::from_json(*this, adl_tag<ValueType>{});
     }
 
     /*!
@@ -3026,7 +3026,8 @@ class basic_json
     */
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
-                                     detail::has_non_default_from_json<basic_json_t, ValueType>::value,
+                                     !detail::has_tagged_from_json<basic_json_t, ValueType>::value &&
+                                      detail::has_non_default_from_json<basic_json_t, ValueType>::value,
                                      int > = 0 >
     ValueType get() const noexcept(noexcept(
                                        JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>())))
