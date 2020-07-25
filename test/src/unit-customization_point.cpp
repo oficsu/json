@@ -62,7 +62,7 @@ static bool operator==(const animal& lhs, const animal& rhs)
 {
     return std::tie(lhs.m_name, lhs.m_age) == std::tie(rhs.m_name, rhs.m_age);
 }
-}
+}  // namespace udt
 
 namespace udt
 {
@@ -98,7 +98,7 @@ void from_json(const BasicJsonType& j, parrot& p)
 {
     valid_conversion_from_json(j, p);
 }
-}
+}  // namespace udt
 
 TEST_CASE("customization points for default constructible types" * doctest::test_suite("udt"))
 {
@@ -206,7 +206,7 @@ void from_json(const BasicJsonType& j, ferret& f)
 {
     should_not_be_called(j, f);
 }
-}
+}  // namespace udt
 
 TEST_CASE("priorities of user-defined customizations for default-constructible types" * doctest::test_suite("udt"))
 {
@@ -242,111 +242,7 @@ TEST_CASE("priorities of user-defined customizations for default-constructible t
 
         CHECK(kirra == udt::ferret{4, "kirra"});
     }
-}
-
-namespace udt
-{
-//template <typename BasicJsonType>
-//static rabbit from_json(const BasicJsonType& j) {
-//    rabbit r;
-//    r.m_age = j["age"].template get<age>();
-//    r.m_name = j["name"].template get<name>();
-//    return r;
-//}
-//template <typename BasicJsonType>
-//hamster from_json(const BasicJsonType& j, nlohmann::adl_tag<hamster>) {
-//    hamster h;
-//    h.m_age = j["age"].template get<age>();
-//    h.m_name = j["name"].template get<name>();
-//    return h;
-//}
-
-//struct ferret : animal
-//{
-//    using animal::animal;
-
-//    template <typename BasicJsonType>
-//    static ferret from_json(const BasicJsonType& j) {
-//        ferret f;
-//        f.m_age = j["age"].template get<age>();
-//        f.m_name = j["name"].template get<name>();
-//        return f;
-//    }
-//};
-
-//template <typename BasicJsonType>
-//ferret from_json(const BasicJsonType& j, nlohmann::adl_tag<hamster>) {
-//    ferret f;
-//    f.m_age = 42;
-//    f.m_name = {"it can't be"};
-//    return f;
-//}
-
-//struct turtle : animal
-//{
-//    using animal::animal;
-//};
-
-
-}
-
-
-//TEST_CASE("customization points" * doctest::test_suite("udt"))
-//{
-//    SECTION("conversion from json via member function")
-//    {
-//        udt::cat tigger;
-//        udt::cat oliver;
-//        json json = R"({"name":"tigger", "age":5})"_json;
-////        json oliver_json = R"({"name":"oliver", "age":3}"})"_json;
-
-//        json.get_to(tigger);
-////        json.get(oliver);
-
-//        CHECK(tigger == udt::cat{{5}, {"tigger"}});
-////        CHECK(oliver == udt::cat{{3}, {"oliver"}});
-//    }
-//    SECTION("conversion from json via free function")
-//    {
-//        udt::dog bella;
-//        udt::dog bella;
-//        json bella = R"({"name":"bella", "age":9})"_json;
-////        json bella = R"({"name":"bella", "age":12}"})"_json;
-
-//        bella.get_to(bella);
-////        json.get(oliver);
-
-//        CHECK(bella == udt::dog{{9}, {"bella"}});
-////        CHECK(bella == udt::dog{{12}, {"bella"}});
-//    }
-//    SECTION("conversion priority")
-//    {
-//        udt::parrot greenie;
-//        udt::parrot buddy;
-//        json greenie_json = R"({"name":"greenie", "age":9})"_json;
-////        json buddy_json = R"({"name":"buddy", "age":12}"})"_json;
-
-//        greenie_json.get_to(greenie);
-////        buddy_json.get(oliver);
-
-//        CHECK(greenie == udt::parrot{{9}, {"greenie"}});
-////        CHECK(buddy == udt::buddy{{12}, {"buddy"}});
-//    }
-
-//    SECTION("conversion priority")
-//    {
-//        udt::fish nemo;
-////        udt::parrot buddy;
-//        json nemo_json = R"({"name":"nemo", "age":9})"_json;
-////        json buddy_json = R"({"name":"buddy", "age":12}"})"_json;
-
-//        nemo_json.get_to(nemo);
-////        buddy_json.get(oliver);
-
-//        CHECK(nemo == udt::parrot{{9}, {"greenie"}});
-////        CHECK(buddy == udt::buddy{{12}, {"buddy"}});
-//    }
-//}
+}  // namespace udt
 
 namespace udt
 {
@@ -416,7 +312,7 @@ static turtle from_json(const BasicJsonType& j, nlohmann::adl_tag<turtle>)
 {
     return should_not_be_called<turtle>(j);
 }
-}
+}  // namespace udt
 
 TEST_CASE("customization points for non-default constructible types" * doctest::test_suite("udt"))
 {
@@ -490,4 +386,4 @@ struct guinea_pig : animal
 {
     using animal::animal;
 };
-}
+}  // namespace udt
