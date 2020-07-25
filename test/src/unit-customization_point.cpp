@@ -84,7 +84,7 @@ struct dog : animal
     template <typename BasicJsonType>
     static void from_json(const BasicJsonType& j, dog& d)
     {
-         valid_conversion_from_json(j, d);
+        valid_conversion_from_json(j, d);
     }
 };
 
@@ -96,7 +96,7 @@ struct parrot : animal
 template <typename BasicJsonType>
 void from_json(const BasicJsonType& j, parrot& p)
 {
-     valid_conversion_from_json(j, p);
+    valid_conversion_from_json(j, p);
 }
 }
 
@@ -140,7 +140,7 @@ struct rabbit : animal
     template <typename BasicJsonType>
     void from_json(const BasicJsonType& j)
     {
-         valid_conversion_from_json(j, *this);
+        valid_conversion_from_json(j, *this);
     }
 
     template <typename BasicJsonType>
@@ -157,7 +157,7 @@ struct horse : animal
     template <typename BasicJsonType>
     static void from_json(const BasicJsonType& j, horse& h)
     {
-         valid_conversion_from_json(j, h);
+        valid_conversion_from_json(j, h);
     }
 };
 
@@ -174,7 +174,7 @@ struct hamster : animal
     template <typename BasicJsonType>
     void from_json(const BasicJsonType& j)
     {
-         valid_conversion_from_json(j, *this);
+        valid_conversion_from_json(j, *this);
     }
 };
 
@@ -191,7 +191,7 @@ struct ferret : animal
     template <typename BasicJsonType>
     void from_json(const BasicJsonType& j)
     {
-         valid_conversion_from_json(j, *this);
+        valid_conversion_from_json(j, *this);
     }
 
     template <typename BasicJsonType>
@@ -450,44 +450,44 @@ TEST_CASE("customization points for non-default constructible types" * doctest::
 
 namespace udt
 {
-    struct gerbil : animal
-    {
-        using animal::animal;
-    };
+struct gerbil : animal
+{
+    using animal::animal;
+};
 
-    struct chipmunk : animal
-    {
-        using animal::animal;
-    };
+struct chipmunk : animal
+{
+    using animal::animal;
+};
 
-    struct potbelly_pig : animal
-    {
-        using animal::animal;
-    };
-    struct chinchilla : animal
-    {
-        using animal::animal;
-    };
-    struct iguana : animal
-    {
-        using animal::animal;
-    };
+struct potbelly_pig : animal
+{
+    using animal::animal;
+};
+struct chinchilla : animal
+{
+    using animal::animal;
+};
+struct iguana : animal
+{
+    using animal::animal;
+};
 
-    struct spider : animal
-    {
-        using animal::animal;
-    };
+struct spider : animal
+{
+    using animal::animal;
+};
 
-    struct hedgehog : animal
-    {
-        using animal::animal;
-    };
-    struct rodent : animal
-    {
-        using animal::animal;
-    };
-    struct guinea_pig : animal
-    {
-        using animal::animal;
-    };
+struct hedgehog : animal
+{
+    using animal::animal;
+};
+struct rodent : animal
+{
+    using animal::animal;
+};
+struct guinea_pig : animal
+{
+    using animal::animal;
+};
 }
