@@ -454,8 +454,8 @@ struct from_json_fn
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, adl_tag<ValueType> tag, Args&& ... args) const
     noexcept(noexcept(from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., tag)))
-    -> typename detail::enable_if_t < !has_non_default_static_from_json<ValueType, decltype(j), decltype(args)...>::value &&
-                                       has_tagged_adl_accesible_from_json<ValueType, decltype(j), decltype(args)...>::value, ValueType>
+    -> typename detail::enable_if_t < !has_non_default_static_from_json<ValueType, decltype(j), decltype(args)...>::value&&
+    has_tagged_adl_accesible_from_json<ValueType, decltype(j), decltype(args)...>::value, ValueType >
     {
         return from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., tag);
     }
@@ -489,8 +489,8 @@ struct from_json_fn
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, ValueType&& val, Args&& ... args) const
     noexcept(noexcept(std::decay<ValueType>::type::from_json(std::forward<BasicJsonType>(j), std::forward<ValueType>(val), std::forward<Args>(args)...)))
-    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
-                      has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value >
+    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value&&
+    has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value >
     {
         std::decay<ValueType>::type::from_json(std::forward<BasicJsonType>(j), std::forward<ValueType>(val), std::forward<Args>(args)...);
     }
@@ -512,9 +512,9 @@ struct from_json_fn
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(const BasicJsonType& j, ValueType& val, Args&& ... args) const
     noexcept(noexcept(from_json(j, val, std::forward<Args>(args)...)))
-    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
-                     !has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value &&
-                      has_adl_accesible_from_json<decltype(j), decltype(val), decltype(args)...>::value >
+    -> enable_if_t < !has_member_from_json<decltype(val), decltype(j), decltype(args)...>::value&&
+    !has_static_from_json<decltype(val), decltype(j), decltype(args)...>::value&&
+    has_adl_accesible_from_json<decltype(j), decltype(val), decltype(args)...>::value >
     {
         from_json(j, val, std::forward<Args>(args)...);
     }
