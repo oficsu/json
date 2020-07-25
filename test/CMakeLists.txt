@@ -109,6 +109,7 @@ set(files
     src/unit-constructor2.cpp
     src/unit-convenience.cpp
     src/unit-conversions.cpp
+    src/unit-customization_point.cpp
     src/unit-deserialization.cpp
     src/unit-element_access1.cpp
     src/unit-element_access2.cpp
