@@ -12,6 +12,7 @@
 #include <utility> // pair, declval
 #include <valarray> // valarray
 
+#include <nlohmann/adl_tag.hpp>
 #include <nlohmann/detail/exceptions.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/detail/meta/cpp_future.hpp>
@@ -386,7 +387,7 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
 struct from_json_fn
 {
     template<typename BasicJsonType, typename ValueType, typename... Args>
-    auto operator()(adl_tag<ValueType>, detail::priority_tag<1>, BasicJsonType&& j, Args&& ... args) const
+    auto call(adl_tag<ValueType>, detail::priority_tag<1>, BasicJsonType&& j, Args&& ... args) const
     noexcept(noexcept(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...)))
     -> decltype(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...))
     {
@@ -394,7 +395,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename... Args>
-    auto operator()(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, Args&& ... args) const
+    auto call(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, Args&& ... args) const
     noexcept(noexcept(from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., adl_tag<ValueType> {})))
     -> decltype (from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., adl_tag<ValueType> {}))
     {
@@ -402,7 +403,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto operator()(adl_tag<ValueType>, priority_tag<2>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto call(adl_tag<ValueType>, priority_tag<2>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(std::forward<ValueTypeCV>(val).from_json(j, std::forward<Args>(args)...)))
     -> decltype (std::forward<ValueTypeCV>(val).from_json(j, std::forward<Args>(args)...), void())
     {
@@ -412,7 +413,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto operator()(adl_tag<ValueType>, priority_tag<1>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto call(adl_tag<ValueType>, priority_tag<1>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(uncvref_t<ValueType>::from_json(std::forward<BasicJsonType>(j), std::forward<ValueTypeCV>(val), std::forward<Args>(args)...)))
     -> decltype(uncvref_t<ValueType>::from_json(std::forward<BasicJsonType>(j), std::forward<ValueTypeCV>(val), std::forward<Args>(args)...), void())
     {
@@ -422,7 +423,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto operator()(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto call(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(from_json(j, std::forward<ValueTypeCV>(val), std::forward<Args>(args)...)))
     -> decltype(from_json(j, std::forward<ValueTypeCV>(val), std::forward<Args>(args)...), void())
     {
@@ -434,10 +435,10 @@ struct from_json_fn
     //
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, ValueType&& val, Args&& ... args) const
-    noexcept(noexcept(this->operator()(adl_tag<ValueType> {}, max_priority_t{}, j, val, std::forward<Args>(args)...)))
-    -> decltype(this->operator()(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...), void())
+    noexcept(noexcept(call(adl_tag<ValueType> {}, max_priority_t{}, j, val, std::forward<Args>(args)...)))
+    -> decltype(call(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...), void())
     {
-        this->operator()(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...);
+        call(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...);
     }
 };
 }  // namespace detail
