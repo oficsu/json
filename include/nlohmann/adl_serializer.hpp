@@ -2,13 +2,14 @@
 
 #include <utility>
 
+#include <nlohmann/adl_tag.hpp>
 #include <nlohmann/detail/conversions/from_json.hpp>
 #include <nlohmann/detail/conversions/to_json.hpp>
 
 namespace nlohmann
 {
 
-template<typename, typename>
+template<typename ValueType, typename>
 struct adl_serializer
 {
     /*!
@@ -16,16 +17,13 @@ struct adl_serializer
 
     This function is usually called by the `get()` function of the
     @ref basic_json class (either explicit or via conversion operators).
-
-    @param[in] j        JSON value to read from
-    @param[in,out] val  value to write to
     */
     template<typename... Args>
     static auto from_json(Args&& ... args) noexcept(
-        noexcept(::nlohmann::from_json(std::forward<Args>(args)...)))
-    -> decltype(::nlohmann::from_json(std::forward<Args>(args)...))
+    noexcept(::nlohmann::from_json(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...)))
+    -> decltype(::nlohmann::from_json(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...))
     {
-        return ::nlohmann::from_json(std::forward<Args>(args)...);
+        return ::nlohmann::from_json(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...);
     }
 
     /*!
@@ -37,12 +35,14 @@ struct adl_serializer
     @param[in,out] j  JSON value to write to
     @param[in] val    value to read from
     */
-    template<typename BasicJsonType, typename ValueType>
-    static auto to_json(BasicJsonType& j, ValueType&& val) noexcept(
-        noexcept(::nlohmann::to_json(j, std::forward<ValueType>(val))))
-    -> decltype(::nlohmann::to_json(j, std::forward<ValueType>(val)), void())
+    template<typename BasicJsonType, typename ValueTypeCV>
+    static auto to_json(BasicJsonType& j, ValueTypeCV&& val) noexcept(
+        noexcept(::nlohmann::to_json(j, std::forward<ValueTypeCV>(val))))
+    -> decltype(::nlohmann::to_json(j, std::forward<ValueTypeCV>(val)), void())
     {
-        ::nlohmann::to_json(j, std::forward<ValueType>(val));
+        static_assert(std::is_same<detail::uncvref_t<ValueTypeCV>, detail::uncvref_t<ValueType>>::value,
+                      "ValueType from specialization and passed ValueTypeCV should be same");
+        ::nlohmann::to_json(j, std::forward<ValueTypeCV>(val));
     }
 };
 

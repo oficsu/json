@@ -328,8 +328,6 @@ TEST_CASE("customization points for non-default constructible types" * doctest::
     {
         json json = R"({"name":"jack", "age":22})"_json;
 
-        static_assert (nlohmann::detail::from_json_fn::has_tagged_adl_accesible_from_json<udt::fish, nlohmann::json>::value, "");
-        static_assert (!nlohmann::detail::from_json_fn::has_non_default_static_from_json<udt::fish, nlohmann::json>::value, "");
         auto jack = json.get<udt::fish>();
 
         CHECK(jack == udt::fish{22, "jack"});
