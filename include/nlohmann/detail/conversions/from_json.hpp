@@ -384,10 +384,11 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
     }
 }
 
-struct from_json_fn
+/// [workaround for gcc](https://gcc.gnu.org/bugzilla/show_bug.cgi?format=multiple&id=52869)
+struct from_json_impl_fn
 {
     template<typename BasicJsonType, typename ValueType, typename... Args>
-    auto call(adl_tag<ValueType>, detail::priority_tag<1>, BasicJsonType&& j, Args&& ... args) const
+    auto operator()(adl_tag<ValueType>, detail::priority_tag<1>, BasicJsonType&& j, Args&& ... args) const
     noexcept(noexcept(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...)))
     -> decltype(ValueType::from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)...))
     {
@@ -395,7 +396,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename... Args>
-    auto call(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, Args&& ... args) const
+    auto operator()(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, Args&& ... args) const
     noexcept(noexcept(from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., adl_tag<ValueType> {})))
     -> decltype (from_json(std::forward<BasicJsonType>(j), std::forward<Args>(args)..., adl_tag<ValueType> {}))
     {
@@ -403,7 +404,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto call(adl_tag<ValueType>, priority_tag<2>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto operator()(adl_tag<ValueType>, priority_tag<2>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(std::forward<ValueTypeCV>(val).from_json(j, std::forward<Args>(args)...)))
     -> decltype (std::forward<ValueTypeCV>(val).from_json(j, std::forward<Args>(args)...), void())
     {
@@ -413,7 +414,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto call(adl_tag<ValueType>, priority_tag<1>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto operator()(adl_tag<ValueType>, priority_tag<1>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(uncvref_t<ValueType>::from_json(std::forward<BasicJsonType>(j), std::forward<ValueTypeCV>(val), std::forward<Args>(args)...)))
     -> decltype(uncvref_t<ValueType>::from_json(std::forward<BasicJsonType>(j), std::forward<ValueTypeCV>(val), std::forward<Args>(args)...), void())
     {
@@ -423,7 +424,7 @@ struct from_json_fn
     }
 
     template<typename BasicJsonType, typename ValueType, typename ValueTypeCV, typename... Args>
-    auto call(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
+    auto operator()(adl_tag<ValueType>, priority_tag<0>, BasicJsonType&& j, ValueTypeCV&& val, Args&& ... args) const
     noexcept(noexcept(from_json(j, std::forward<ValueTypeCV>(val), std::forward<Args>(args)...)))
     -> decltype(from_json(j, std::forward<ValueTypeCV>(val), std::forward<Args>(args)...), void())
     {
@@ -431,14 +432,25 @@ struct from_json_fn
                       "ValueType and ValueTypeCV should be same");
         from_json(j, std::forward<ValueTypeCV>(val), std::forward<Args>(args)...);
     }
+};
 
+/// namespace to hold default `from_json` function
+/// to see why this is required:
+/// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4381.html
+namespace
+{
+constexpr const auto& from_json_impl = detail::static_const<detail::from_json_impl_fn>::value;
+} // namespace
+
+struct from_json_fn
+{
     //
     template<typename BasicJsonType, typename ValueType, typename... Args>
     auto operator()(BasicJsonType&& j, ValueType&& val, Args&& ... args) const
-    noexcept(noexcept(call(adl_tag<ValueType> {}, max_priority_t{}, j, val, std::forward<Args>(args)...)))
-    -> decltype(call(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...), void())
+    noexcept(noexcept(from_json_impl(adl_tag<ValueType> {}, max_priority_t{}, j, val, std::forward<Args>(args)...)))
+    -> decltype(from_json_impl(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...), void())
     {
-        call(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...);
+        from_json_impl(adl_tag<uncvref_t<ValueType>> {}, max_priority_t{}, j, val, std::forward<Args>(args)...);
     }
 };
 }  // namespace detail
