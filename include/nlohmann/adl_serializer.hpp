@@ -20,10 +20,10 @@ struct adl_serializer
     */
     template<typename... Args>
     static auto from_json(Args&& ... args) noexcept(
-    noexcept(::nlohmann::from_json.call(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...)))
-    -> decltype(::nlohmann::from_json.call(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...))
+    noexcept(::nlohmann::detail::from_json_impl(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...)))
+    -> decltype(::nlohmann::detail::from_json_impl(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...))
     {
-        return ::nlohmann::from_json.call(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...);
+        return ::nlohmann::detail::from_json_impl(adl_tag<ValueType> {}, detail::max_priority_t{}, std::forward<Args>(args)...);
     }
 
     /*!
