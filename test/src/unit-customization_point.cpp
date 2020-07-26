@@ -379,13 +379,6 @@ struct gerbil : animal
     {
         valid_conversion_from_json(j, *this, parsed_via::member_f);
     }
-
-    template <typename BasicJsonType>
-    static gerbil from_json(const BasicJsonType& j)
-    {
-        return valid_conversion_from_json<gerbil>(j, parsed_via::non_default_static_f);
-    }
-
 };
 
 template <typename BasicJsonType>
@@ -397,7 +390,7 @@ void from_json(const BasicJsonType& j, gerbil& g)
 template <typename BasicJsonType>
 gerbil from_json(const BasicJsonType& j, nlohmann::adl_tag<gerbil>)
 {
-    return should_not_be_called<gerbil>(j, parsed_via::nob_default_adl_f);
+    return valid_conversion_from_json<gerbil>(j, parsed_via::nob_default_adl_f);
 }
 
 struct chipmunk : animal
@@ -408,12 +401,6 @@ struct chipmunk : animal
     void from_json(const BasicJsonType& j)
     {
         valid_conversion_from_json(j, *this, parsed_via::member_f);
-    }
-
-    template <typename BasicJsonType>
-    static chipmunk from_json(const BasicJsonType& j)
-    {
-        return valid_conversion_from_json(j, parsed_via::non_default_static_f);
     }
 
     template <typename BasicJsonType>
@@ -500,12 +487,6 @@ struct spider : animal
     void from_json(const BasicJsonType& j)
     {
         valid_conversion_from_json(j, *this, parsed_via::member_f);
-    }
-
-    template <typename BasicJsonType>
-    static spider from_json(const BasicJsonType& j)
-    {
-        return valid_conversion_from_json<spider>(j, parsed_via::non_default_static_f);
     }
 
     template <typename BasicJsonType>
