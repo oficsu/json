@@ -9,7 +9,6 @@
 #include <nlohmann/detail/meta/cpp_future.hpp>
 #include <nlohmann/detail/meta/detected.hpp>
 #include <nlohmann/json_fwd.hpp>
-#include <nlohmann/adl_tag.hpp>
 
 namespace nlohmann
 {
@@ -116,20 +115,6 @@ struct has_from_json < BasicJsonType, T,
         const BasicJsonType&, T&>::value;
 };
 
-// This trait checks if JSONSerializer<T>::from_json(json const&, adl_tag<T>) exists
-// this overload is used for non-default-constructible user-defined-types
-template<typename BasicJsonType, typename T, typename = void>
-struct has_tagged_from_json : std::false_type {};
-
-template<typename BasicJsonType, typename T>
-struct has_tagged_from_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
-{
-    using serializer = typename BasicJsonType::template json_serializer<T, void>;
-
-    static constexpr bool value =
-        is_detected_exact<T, from_json_function, serializer,
-        const BasicJsonType&, adl_tag<T>>::value;
-};
 
 // This trait checks if JSONSerializer<T>::from_json(json const&) exists
 // this overload is used for non-default-constructible user-defined-types
